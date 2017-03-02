@@ -1,0 +1,19 @@
+{
+  "name": "ygo",
+  "version": "1.0.0",
+  "description": "ygo search",
+  "main": "index.js",
+  "author": "llan <llan@amwares.com>",
+  "license": "MIT",
+  "dependencies": {
+    "cheerio": "^0.22.0",
+    "mysql": "^2.13.0",
+    "promise": "^7.1.1",
+    "request": "^2.79.0",
+    "request-promise": "^4.1.1",
+    "sequelize": "^3.30.2"
+  },
+  "scripts": {
+    "start": "node --harmony-async-await index.js"
+  }
+}
