@@ -38,18 +38,21 @@ const connect = ()=> {
 const getPages = async(url, page)=> {
     const options = {
         uri: `${url}${page}`,
-        transform: function (body) {
-            return cheerio.load(body);
+        headers: {
+            'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
+            'User-Agent': 'Mozilla/5.0 (Windows NT 6.1; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/39.0.2171.99 Safari/537.36'
         }
     };
-    rp(options)
-        .then(function ($) {
-            return $('#pdata').attr('totpage');
-        })
-        .catch(function (err) {
-            fs.writeFileSync(path.join(__dirname, 'logs', `getPages-error.txt`), `获取总页数发生错误,错误名称${err.name},错误码${err.statusCode
-                },错误信息${err.message}`);
+    try {
+        let res = await rp(options),
+            $ = cheerio.load(res);
+        return $('#pdata').attr('totpage');
+    } catch (err) {
+        fs.writeFileSync(path.join(__dirname, 'logs', `getPages-error.txt`), `获取总页数爬虫发生错误,错误名称${err.name},错误码${err.statusCode
+            },错误信息${err.message}`, {
+            flag: 'a'
         });
+    }
 };
 /**
  * 获取详情页信息
@@ -61,27 +64,29 @@ const getPages = async(url, page)=> {
 const getInfo = async(url, id, page)=> {
     const options = {
         uri: `${url}${id}`,
-        transform: function (body) {
-            return cheerio.load(body);
+        headers: {
+            'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
+            'User-Agent': 'Mozilla/5.0 (Windows NT 6.1; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/39.0.2171.99 Safari/537.36'
         }
     };
-    rp(options)
-        .then(function ($) {
-            //成功获取详情页信息
-            //将成功获取详情页的id储存到redis中,作比较
-            client.sadd(`${page}-spider`, id);
-            let info = {};
-            $('.val').each((i, item)=> {
-                info[i] = $(item).text();
-            });
-            return info;
-        })
-        .catch(function (err) {
-            fs.writeFileSync(path.join(__dirname, 'logs', `${page}-error.txt`), `\n第${page}页,id为${id}爬虫发生错误,错误名称${err.name},错误码${err.statusCode
-                },错误信息${err.message}`, {
-                flag: 'a'
-            });
+    try {
+        let res = await rp(options),
+            $ = cheerio.load(res);
+        //成功获取详情页信息
+        //将成功获取详情页的id储存到redis中,作比较
+        client.sadd(`${page}-spider`, id);
+        console.log('here');
+        let info = {};
+        $('.val').each((i, item)=> {
+            info[i] = $(item).text();
         });
+        return info;
+    } catch (err) {
+        fs.writeFileSync(path.join(__dirname, 'logs', `${page}-error.txt`), `\n第${page}页,id为${id}爬虫发生错误,错误名称${err.name},错误码${err.statusCode
+            },错误信息${err.message}`, {
+            flag: 'a'
+        });
+    }
 };
 /**
  * 延迟循环函数 每delay秒执行一次spider函数 获取信息
@@ -110,9 +115,12 @@ const spider = async(curIter, $item, page)=> {
     let carId = $item.eq(curIter).attr('card_id');
     console.log('carId', carId, typeof(carId));
     let spidered = await client.smembers(`${page}-spider`);
+    console.log('spidered', spidered, typeof (spidered));
+    console.log('indexOf', spidered.indexOf(carId));
     //若已采集过, 则不再爬虫
-    if (typeof(spidered) === 'object' && spidered.indexOf(carId) < 0) {
+    if (spidered.indexOf(carId) < 0) {
         let carInfo = await getInfo(viewUrl, carId, page);
+        console.log('carInfo', carInfo);
         let cnName = carInfo[0],
             JapanName = carInfo[1],
             enName = carInfo[2],
@@ -202,27 +210,28 @@ const getData = async(url, page)=> {
     console.log(`第${page}页开始爬虫`);
     const options = {
         uri: `${listUrl}${page}`,
-        transform: function (body) {
-            return cheerio.load(body);
+        headers: {
+            'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
+            'User-Agent': 'Mozilla/5.0 (Windows NT 6.1; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/39.0.2171.99 Safari/537.36'
         }
     };
-    rp(options)
-        .then(function ($) {
-            //获取页面数据成功
-            //将成功获取数据页后一页码写入redis
-            client.set('spiderPage', page + 1);
-            let $item = $('.card-item');
-            let maxIter = $item.length,
-                delay = 10 * 1000,
-                curIter = 0;
-            runAgain(curIter, $item, page, maxIter, delay);
-        })
-        .catch(function (err) {
-            fs.writeFileSync(path.join(__dirname, 'logs', `${page}-error.txt`), `\n第${page}页爬虫发生错误,错误名称${err.name},错误码${err.statusCode
-                },错误信息${err.message}`, {
-                flag: 'a'
-            });
+    try {
+        let res = await rp(options),
+            $ = cheerio.load(res);
+        //获取页面数据成功
+        //将成功获取数据页后一页码写入redis
+        client.set('spiderPage', page + 1);
+        let $item = $('.card-item');
+        let maxIter = $item.length,
+            delay = 10 * 1000,
+            curIter = 0;
+        runAgain(curIter, $item, page, maxIter, delay);
+    } catch (err) {
+        fs.writeFileSync(path.join(__dirname, 'logs', `${page}-error.txt`), `\n第${page}页爬虫发生错误,错误名称${err.name},错误码${err.statusCode
+            },错误信息${err.message}`, {
+            flag: 'a'
         });
+    }
 };
 
 // const downLoadImg = async(imgUrl, imgId)=> {
@@ -231,10 +240,10 @@ const getData = async(url, page)=> {
 
 const start = async()=> {
     let total = await getPages(listUrl, 1);
-    connect();
-    for (let i = spiderPage; i <= total; i++) {
-        getData(listUrl, i);
-    }
+    console.log('total', total);
+    // connect();
+    // for (let i = spiderPage; i <= total; i++) {
+    //     getData(listUrl, i);
+    // }
 };
-getData(listUrl, 1);
-// start();
+start();
