@@ -5,30 +5,28 @@ const cheerio = require('cheerio'),
     //use 'then-redis' to support promises
     createClient = require('then-redis').createClient,
     client = createClient();
-
+//导入数据模型
 let models = require('./models');
+//爬虫用的url字符串
 const baseUrl = 'http://www.ourocg.cn/Cards/';
 const listUrl = `${baseUrl}Lists-5-`;
 const viewUrl = `${baseUrl}View-`;
+//需要搜索总页数
+let total = 0;
 /**
- * 链接redis
- */
-client.on("error", function (err) {
-    console.log("Error " + err);
-});
-//获取搜索页
-let spiderPage = client.get('spiderPage') ? client.get('spiderPage') : 1;
-/**
- * 链接mysql数据库
+ * 链接mysql数据库 & 监听redis数据库
  */
 const connect = ()=> {
     models.sequelize.sync(
-        {
-            'force': true
-        }
+        // {
+        //     'force': true
+        // }
     ).then(()=> {
         console.log('success to connect mysql~');
-    })
+    });
+    client.on("error", function (err) {
+        console.log("Error " + err);
+    });
 };
 /**
  * 获取总页数
@@ -75,7 +73,6 @@ const getInfo = async(url, id, page)=> {
         //成功获取详情页信息
         //将成功获取详情页的id储存到redis中,作比较
         client.sadd(`${page}-spider`, id);
-        console.log('here');
         let info = {};
         $('.val').each((i, item)=> {
             info[i] = $(item).text();
@@ -89,38 +86,26 @@ const getInfo = async(url, id, page)=> {
     }
 };
 /**
- * 延迟循环函数 每delay秒执行一次spider函数 获取信息
- * @param curIter 当前迭代下标
- * @param $item 数据源
- * @param page 当前爬虫页
- * @param maxIter 迭代次数
- * @param delay 延迟(秒)
+ * 延迟函数
+ * @param ms 延迟(毫秒)
+ * @returns {Promise}
  */
-const runAgain = async(curIter, $item, page, maxIter, delay)=> {
-    await spider(curIter, $item, page);
-    setTimeout(function () {
-        ++curIter;
-        if (curIter < maxIter)
-            runAgain(curIter, $item, page, maxIter, delay);
-    }, delay)
+const sleep = (ms = 0) => {
+    return new Promise(r => setTimeout(r, ms));
 };
+
 /**
  * 爬虫函数
- * @param curIter 当前迭代
- * @param $item 数据源
+ * @param $item 当前爬虫数据源
  * @param page 当前爬虫页
  */
-const spider = async(curIter, $item, page)=> {
+const spider = async($item, page)=> {
     let errorInfo = [];
-    let carId = $item.eq(curIter).attr('card_id');
-    console.log('carId', carId, typeof(carId));
+    let carId = $item.attr('card_id');
     let spidered = await client.smembers(`${page}-spider`);
-    console.log('spidered', spidered, typeof (spidered));
-    console.log('indexOf', spidered.indexOf(carId));
     //若已采集过, 则不再爬虫
     if (spidered.indexOf(carId) < 0) {
         let carInfo = await getInfo(viewUrl, carId, page);
-        console.log('carInfo', carInfo);
         let cnName = carInfo[0],
             JapanName = carInfo[1],
             enName = carInfo[2],
@@ -207,7 +192,7 @@ const spider = async(curIter, $item, page)=> {
  * @param page
  */
 const getData = async(url, page)=> {
-    console.log(`第${page}页开始爬虫`);
+    console.log(`第${page}页爬虫开始~`);
     const options = {
         uri: `${listUrl}${page}`,
         headers: {
@@ -219,13 +204,24 @@ const getData = async(url, page)=> {
         let res = await rp(options),
             $ = cheerio.load(res);
         //获取页面数据成功
-        //将成功获取数据页后一页码写入redis
-        client.set('spiderPage', page + 1);
         let $item = $('.card-item');
-        let maxIter = $item.length,
-            delay = 10 * 1000,
-            curIter = 0;
-        runAgain(curIter, $item, page, maxIter, delay);
+        for (let i = 0; i < $item.length; i++) {
+            //每个爬虫等待10s
+            await sleep(10 * 1000);
+            //爬虫开始
+            await spider($item.eq(i), page);
+            //爬虫结束
+            if (i === $item.length - 1) {
+                console.log(`第${page}页爬虫结束~`);
+                //将成功获取数据页后一页码写入redis
+                client.set('spiderPage', page + 1);
+                page = 457;
+                if (page == total) {
+                    console.log('爬虫结束,正在关闭redis数据库~');
+                    client.quit();
+                }
+            }
+        }
     } catch (err) {
         fs.writeFileSync(path.join(__dirname, 'logs', `${page}-error.txt`), `\n第${page}页爬虫发生错误,错误名称${err.name},错误码${err.statusCode
             },错误信息${err.message}`, {
@@ -234,16 +230,12 @@ const getData = async(url, page)=> {
     }
 };
 
-// const downLoadImg = async(imgUrl, imgId)=> {
-//     const filePath = path.join(__dirname, 'downLoad');
-// };
-
 const start = async()=> {
-    let total = await getPages(listUrl, 1);
-    console.log('total', total);
-    // connect();
-    // for (let i = spiderPage; i <= total; i++) {
-    //     getData(listUrl, i);
-    // }
+    total = await getPages(listUrl, 1);
+    const spiderPage = await client.get('spiderPage') ? await client.get('spiderPage') : 1;
+    connect();
+    for (let i = spiderPage; i <= total; i++) {
+        await getData(listUrl, i);
+    }
 };
 start();
