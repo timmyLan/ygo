@@ -18,9 +18,9 @@ let total = 0;
  */
 const connect = ()=> {
     models.sequelize.sync(
-        {
-            'force': true
-        }
+        // {
+        //     'force': true
+        // }
     ).then(()=> {
         console.log('success to connect mysql~');
     });
