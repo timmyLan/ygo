@@ -1,14 +1,25 @@
 const cheerio = require('cheerio'),
     rp = require('request-promise'),
     fs = require('fs'),
-    path = require('path');
+    path = require('path'),
+    //use 'then-redis' to support promises
+    createClient = require('then-redis').createClient,
+    client = createClient();
 
 let models = require('./models');
 const baseUrl = 'http://www.ourocg.cn/Cards/';
 const listUrl = `${baseUrl}Lists-5-`;
 const viewUrl = `${baseUrl}View-`;
 /**
- * 链接数据库
+ * 链接redis
+ */
+client.on("error", function (err) {
+    console.log("Error " + err);
+});
+//获取搜索页
+let spiderPage = client.get('spiderPage') ? client.get('spiderPage') : 1;
+/**
+ * 链接mysql数据库
  */
 const connect = ()=> {
     models.sequelize.sync(
@@ -56,6 +67,9 @@ const getInfo = async(url, id, page)=> {
     };
     rp(options)
         .then(function ($) {
+            //成功获取详情页信息
+            //将成功获取详情页的id储存到redis中,作比较
+            client.sadd(`${page}-spider`, id);
             let info = {};
             $('.val').each((i, item)=> {
                 info[i] = $(item).text();
@@ -94,83 +108,88 @@ const runAgain = async(curIter, $item, page, maxIter, delay)=> {
 const spider = async(curIter, $item, page)=> {
     let errorInfo = [];
     let carId = $item.eq(curIter).attr('card_id');
-    let carInfo = await getInfo(viewUrl, carId, page);
-    let cnName = carInfo[0],
-        JapanName = carInfo[1],
-        enName = carInfo[2],
-        type = carInfo[3],
-        keyCode = carInfo[4],
-        limit = carInfo[5],
-        exclusive = carInfo[6];
-    if (carInfo[3].indexOf('魔法') > 0) {
-        let rare = carInfo[7],
-            cardPack = carInfo[8],
-            effect = carInfo[9];
-        models.Magic.create({
-            type: type,
-            effect: effect,
-            JapanName: JapanName,
-            cnName: cnName,
-            enName: enName,
-            limit: limit,
-            exclusive: exclusive,
-            rare: rare,
-            cardPack: cardPack,
-            carId: carId,
-            keyCode: keyCode
-        });
-    } else if (carInfo[3].indexOf('陷阱') > 0) {
-        let rare = carInfo[7],
-            cardPack = carInfo[8],
-            effect = carInfo[9];
-        models.Trap.create({
-            type: type,
-            effect: effect,
-            JapanName: JapanName,
-            cnName: cnName,
-            enName: enName,
-            limit: limit,
-            exclusive: exclusive,
-            rare: rare,
-            cardPack: cardPack,
-            carId: carId,
-            keyCode: keyCode
-        });
-    } else if (carInfo[3].indexOf('怪兽') > 0) {
-        let tribe = carInfo[7],
-            element = carInfo[8],
-            star = carInfo[9],
-            atk = carInfo[10],
-            def = carInfo[11],
-            rare = carInfo[12],
-            cardPack = carInfo[13],
-            effect = carInfo[14];
-        models.Monster.create({
-            type: type,
-            effect: effect,
-            JapanName: JapanName,
-            cnName: cnName,
-            enName: enName,
-            limit: limit,
-            exclusive: exclusive,
-            rare: rare,
-            cardPack: cardPack,
-            carId: carId,
-            keyCode: keyCode,
-            tribe: tribe,
-            element: element,
-            star: star,
-            atk: atk,
-            def: def
-        });
-    } else {
-        errorInfo.push(`第${page}页,第${i}条数据类型不属于指定(魔法/陷阱/怪兽)类型,无法获取数据.`);
-    }
-    if (errorInfo.length !== 0) {
-        for (let j = 0; j < errorInfo.length; j++) {
-            fs.writeFileSync(path.join(__dirname, 'logs', `${page}-error.txt`), `\n${errorInfo[j]}`, {
-                flag: 'a'
+    console.log('carId', carId, typeof(carId));
+    let spidered = await client.smembers(`${page}-spider`);
+    //若已采集过, 则不再爬虫
+    if (typeof(spidered) === 'object' && spidered.indexOf(carId) < 0) {
+        let carInfo = await getInfo(viewUrl, carId, page);
+        let cnName = carInfo[0],
+            JapanName = carInfo[1],
+            enName = carInfo[2],
+            type = carInfo[3],
+            keyCode = carInfo[4],
+            limit = carInfo[5],
+            exclusive = carInfo[6];
+        if (carInfo[3].indexOf('魔法') > 0) {
+            let rare = carInfo[7],
+                cardPack = carInfo[8],
+                effect = carInfo[9];
+            models.Magic.create({
+                type: type,
+                effect: effect,
+                JapanName: JapanName,
+                cnName: cnName,
+                enName: enName,
+                limit: limit,
+                exclusive: exclusive,
+                rare: rare,
+                cardPack: cardPack,
+                carId: carId,
+                keyCode: keyCode
             });
+        } else if (carInfo[3].indexOf('陷阱') > 0) {
+            let rare = carInfo[7],
+                cardPack = carInfo[8],
+                effect = carInfo[9];
+            models.Trap.create({
+                type: type,
+                effect: effect,
+                JapanName: JapanName,
+                cnName: cnName,
+                enName: enName,
+                limit: limit,
+                exclusive: exclusive,
+                rare: rare,
+                cardPack: cardPack,
+                carId: carId,
+                keyCode: keyCode
+            });
+        } else if (carInfo[3].indexOf('怪兽') > 0) {
+            let tribe = carInfo[7],
+                element = carInfo[8],
+                star = carInfo[9],
+                atk = carInfo[10],
+                def = carInfo[11],
+                rare = carInfo[12],
+                cardPack = carInfo[13],
+                effect = carInfo[14];
+            models.Monster.create({
+                type: type,
+                effect: effect,
+                JapanName: JapanName,
+                cnName: cnName,
+                enName: enName,
+                limit: limit,
+                exclusive: exclusive,
+                rare: rare,
+                cardPack: cardPack,
+                carId: carId,
+                keyCode: keyCode,
+                tribe: tribe,
+                element: element,
+                star: star,
+                atk: atk,
+                def: def
+            });
+        } else {
+            errorInfo.push(`第${page}页,第${i}条数据类型不属于指定(魔法/陷阱/怪兽)类型,无法获取数据.`);
+        }
+        if (errorInfo.length !== 0) {
+            for (let j = 0; j < errorInfo.length; j++) {
+                fs.writeFileSync(path.join(__dirname, 'logs', `${page}-error.txt`), `\n${errorInfo[j]}`, {
+                    flag: 'a'
+                });
+            }
         }
     }
 };
@@ -189,6 +208,9 @@ const getData = async(url, page)=> {
     };
     rp(options)
         .then(function ($) {
+            //获取页面数据成功
+            //将成功获取数据页后一页码写入redis
+            client.set('spiderPage', page + 1);
             let $item = $('.card-item');
             let maxIter = $item.length,
                 delay = 10 * 1000,
@@ -210,7 +232,9 @@ const getData = async(url, page)=> {
 const start = async()=> {
     let total = await getPages(listUrl, 1);
     connect();
-    getData(listUrl, 1);
+    for (let i = spiderPage; i <= total; i++) {
+        getData(listUrl, i);
+    }
 };
 getData(listUrl, 1);
 // start();
