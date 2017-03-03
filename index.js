@@ -18,9 +18,9 @@ let total = 0;
  */
 const connect = ()=> {
     models.sequelize.sync(
-        // {
-        //     'force': true
-        // }
+        {
+            'force': true
+        }
     ).then(()=> {
         console.log('success to connect mysql~');
     });
@@ -215,7 +215,6 @@ const getData = async(url, page)=> {
                 console.log(`第${page}页爬虫结束~`);
                 //将成功获取数据页后一页码写入redis
                 client.set('spiderPage', page + 1);
-                page = 457;
                 if (page == total) {
                     console.log('爬虫结束,正在关闭redis数据库~');
                     client.quit();
