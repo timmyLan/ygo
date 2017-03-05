@@ -70,9 +70,6 @@ const getInfo = async(url, id, page)=> {
     try {
         let res = await rp(options),
             $ = cheerio.load(res);
-        //成功获取详情页信息
-        //将成功获取详情页的id储存到redis中,作比较
-        client.sadd(`${page}-spider`, id);
         let info = {};
         $('.val').each((i, item)=> {
             info[i] = $(item).text();
@@ -117,7 +114,7 @@ const spider = async($item, page)=> {
             let rare = carInfo[7],
                 cardPack = carInfo[8],
                 effect = carInfo[9];
-            models.Magic.create({
+            await models.Magic.create({
                 type: type,
                 effect: effect,
                 JapanName: JapanName,
@@ -134,7 +131,7 @@ const spider = async($item, page)=> {
             let rare = carInfo[7],
                 cardPack = carInfo[8],
                 effect = carInfo[9];
-            models.Trap.create({
+            await models.Trap.create({
                 type: type,
                 effect: effect,
                 JapanName: JapanName,
@@ -156,7 +153,7 @@ const spider = async($item, page)=> {
                 rare = carInfo[12],
                 cardPack = carInfo[13],
                 effect = carInfo[14];
-            models.Monster.create({
+            await models.Monster.create({
                 type: type,
                 effect: effect,
                 JapanName: JapanName,
@@ -177,6 +174,9 @@ const spider = async($item, page)=> {
         } else {
             errorInfo.push(`第${page}页,第${i}条数据类型不属于指定(魔法/陷阱/怪兽)类型,无法获取数据.`);
         }
+        //成功获取详情页信息
+        //将成功获取详情页的id储存到redis中,作比较
+        client.sadd(`${page}-spider`, carId);
         if (errorInfo.length !== 0) {
             for (let j = 0; j < errorInfo.length; j++) {
                 fs.writeFileSync(path.join(__dirname, 'logs', `${page}-error.txt`), `\n${errorInfo[j]}`, {
@@ -184,6 +184,8 @@ const spider = async($item, page)=> {
                 });
             }
         }
+    } else {
+        console.log(`第${page}页卡片id为${carId}的卡片信息已在数据库,不再进行爬虫`);
     }
 };
 /**
@@ -206,7 +208,7 @@ const getData = async(url, page)=> {
         //获取页面数据成功
         let $item = $('.card-item');
         for (let i = 0; i < $item.length; i++) {
-            //每个爬虫等待10s
+            //每个爬虫等待5s
             await sleep(10 * 1000);
             //爬虫开始
             await spider($item.eq(i), page);
@@ -233,7 +235,7 @@ const start = async()=> {
     total = await getPages(listUrl, 1);
     const spiderPage = await client.get('spiderPage') ? await client.get('spiderPage') : 1;
     connect();
-    for (let i = spiderPage; i <= total; i++) {
+    for (let i = Number(spiderPage); i <= total; i++) {
         await getData(listUrl, i);
     }
 };
