@@ -14,7 +14,7 @@ let Magic = sequelize.define('magic', {
     rare: Sequelize.STRING,
     cardPack: Sequelize.STRING,
     carId: Sequelize.STRING,
-    keyCode:Sequelize.INTEGER
+    keyCode: Sequelize.INTEGER
 });
 let Trap = sequelize.define('trap', {
     type: Sequelize.STRING,
@@ -27,7 +27,7 @@ let Trap = sequelize.define('trap', {
     rare: Sequelize.STRING,
     cardPack: Sequelize.STRING,
     carId: Sequelize.STRING,
-    keyCode:Sequelize.INTEGER
+    keyCode: Sequelize.INTEGER
 });
 let Monster = sequelize.define('monster', {
     type: Sequelize.STRING,
@@ -40,12 +40,14 @@ let Monster = sequelize.define('monster', {
     rare: Sequelize.STRING,
     cardPack: Sequelize.STRING,
     carId: Sequelize.STRING,
-    keyCode:Sequelize.INTEGER,
-    tribe:Sequelize.STRING,
-    element:Sequelize.STRING,
-    star:Sequelize.INTEGER,
-    atk:Sequelize.INTEGER,
-    def:Sequelize.INTEGER
+    keyCode: Sequelize.INTEGER,
+    tribe: Sequelize.STRING,
+    element: Sequelize.STRING,
+    star: Sequelize.INTEGER,
+    atk: Sequelize.INTEGER,
+    def: Sequelize.INTEGER,
+    scale: Sequelize.STRING,
+    scaleEffect: Sequelize.STRING
 });
 
 module.exports = {

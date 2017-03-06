@@ -74,7 +74,14 @@ const getInfo = async(url, id, page)=> {
             $ = cheerio.load(res);
         let info = {};
         $('.val').each((i, item)=> {
-            info[i] = $(item).text();
+            if ($(item).hasClass('effect') && $(item).children().hasClass('subtext')) {
+                //该怪兽为灵摆怪兽
+                $(item).find('.subtext').each((j, sub)=> {
+                    info[i + j] = $(sub).text();
+                });
+            } else {
+                info[i] = $(item).text();
+            }
         });
         return info;
     } catch (err) {
@@ -156,25 +163,53 @@ const spider = async($item, page)=> {
                 def = carInfo[11],
                 rare = carInfo[12],
                 cardPack = carInfo[13],
+                effect = '';
+            if (Object.keys(carInfo).length > 16) {
+                //该怪兽为灵摆怪兽
+                let scale = carInfo[14],
+                    scaleEffect = carInfo[15];
+                effect = carInfo[16];
+                await models.Monster.create({
+                    type: type,
+                    effect: effect,
+                    JapanName: JapanName,
+                    cnName: cnName,
+                    enName: enName,
+                    limit: limit,
+                    exclusive: exclusive,
+                    rare: rare,
+                    cardPack: cardPack,
+                    carId: carId,
+                    keyCode: keyCode,
+                    tribe: tribe,
+                    element: element,
+                    star: star,
+                    atk: atk,
+                    def: def,
+                    scale: scale,
+                    scaleEffect: scaleEffect
+                });
+            } else {
                 effect = carInfo[14];
-            await models.Monster.create({
-                type: type,
-                effect: effect,
-                JapanName: JapanName,
-                cnName: cnName,
-                enName: enName,
-                limit: limit,
-                exclusive: exclusive,
-                rare: rare,
-                cardPack: cardPack,
-                carId: carId,
-                keyCode: keyCode,
-                tribe: tribe,
-                element: element,
-                star: star,
-                atk: atk,
-                def: def
-            });
+                await models.Monster.create({
+                    type: type,
+                    effect: effect,
+                    JapanName: JapanName,
+                    cnName: cnName,
+                    enName: enName,
+                    limit: limit,
+                    exclusive: exclusive,
+                    rare: rare,
+                    cardPack: cardPack,
+                    carId: carId,
+                    keyCode: keyCode,
+                    tribe: tribe,
+                    element: element,
+                    star: star,
+                    atk: atk,
+                    def: def
+                });
+            }
         } else {
             errorInfo.push(`第${page}页,第${i}条数据类型不属于指定(魔法/陷阱/怪兽)类型,无法获取数据.`);
         }
