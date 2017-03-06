@@ -13,6 +13,8 @@ const listUrl = `${baseUrl}Lists-5-`;
 const viewUrl = `${baseUrl}View-`;
 //需要搜索总页数
 let total = 0;
+//搜索延迟(ms)
+let delay = 10 * 1000;
 /**
  * 链接mysql数据库 & 监听redis数据库
  */
@@ -102,6 +104,8 @@ const spider = async($item, page)=> {
     let spidered = await client.smembers(`${page}-spider`);
     //若已采集过, 则不再爬虫
     if (spidered.indexOf(carId) < 0) {
+        //爬虫间隔时间为10s
+        delay = 10 * 1000;
         let carInfo = await getInfo(viewUrl, carId, page);
         let cnName = carInfo[0],
             JapanName = carInfo[1],
@@ -185,6 +189,8 @@ const spider = async($item, page)=> {
             }
         }
     } else {
+        //若已经爬取的数据,则将延迟时间改为0s
+        delay = 0;
         console.log(`第${page}页卡片id为${carId}的卡片信息已在数据库,不再进行爬虫`);
     }
 };
@@ -208,8 +214,8 @@ const getData = async(url, page)=> {
         //获取页面数据成功
         let $item = $('.card-item');
         for (let i = 0; i < $item.length; i++) {
-            //每个爬虫等待5s
-            await sleep(10 * 1000);
+            //每个爬虫等待delay秒
+            await sleep(delay);
             //爬虫开始
             await spider($item.eq(i), page);
             //爬虫结束
