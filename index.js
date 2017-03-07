@@ -64,6 +64,7 @@ const getPages = async(url, page)=> {
 const getInfo = async(url, id, page)=> {
     const options = {
         uri: `${url}${id}`,
+        //伪装成浏览器发送请求
         headers: {
             'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
             'User-Agent': 'Mozilla/5.0 (Windows NT 6.1; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/39.0.2171.99 Safari/537.36'
@@ -271,7 +272,9 @@ const getData = async(url, page)=> {
         });
     }
 };
-
+/**
+ * 开始爬虫函数
+ */
 const start = async()=> {
     total = await getPages(listUrl, 1);
     const spiderPage = await client.get('spiderPage') ? await client.get('spiderPage') : 1;
