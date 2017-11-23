@@ -17,7 +17,6 @@
   },
   "scripts": {
     "start": "node --harmony-async-await index.js",
-    "clean": "rm -rf logs/*",
-    "test": "node --harmony-async-await test.js"
+    "clean": "rm -rf logs/*"
   }
 }

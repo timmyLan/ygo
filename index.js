@@ -35,7 +35,7 @@ const connect = ()=> {
  * @param url
  * @param page
  */
-const getPages = async(url, page)=> {
+const getPages = async (url, page)=> {
     const options = {
         uri: `${url}${page}`,
         headers: {
@@ -61,7 +61,7 @@ const getPages = async(url, page)=> {
  * @param page
  * @returns {{}}
  */
-const getInfo = async(url, id, page)=> {
+const getInfo = async (url, id, page)=> {
     const options = {
         uri: `${url}${id}`,
         //伪装成浏览器发送请求
@@ -106,7 +106,7 @@ const sleep = (ms = 0) => {
  * @param $item 当前爬虫数据源
  * @param page 当前爬虫页
  */
-const spider = async($item, page)=> {
+const spider = async ($item, page)=> {
     let errorInfo = [];
     let carId = $item.attr('card_id');
     let spidered = await client.smembers(`${page}-spider`);
@@ -231,11 +231,11 @@ const spider = async($item, page)=> {
     }
 };
 /**
- * 获取页面数据
+ * 获取数据主函数
  * @param url
  * @param page
  */
-const getData = async(url, page)=> {
+const getData = async (url, page)=> {
     console.log(`第${page}页爬虫开始~`);
     const options = {
         uri: `${listUrl}${page}`,
@@ -275,7 +275,7 @@ const getData = async(url, page)=> {
 /**
  * 开始爬虫函数
  */
-const start = async()=> {
+const start = async ()=> {
     total = await getPages(listUrl, 1);
     const spiderPage = await client.get('spiderPage') ? await client.get('spiderPage') : 1;
     connect();
